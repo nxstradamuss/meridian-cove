@@ -44,12 +44,16 @@ function nearestLine(sorted, value) {
   return best;
 }
 
-// Distance from a point to the nearest road centre line, on either axis. Staged cars are
-// kept at least 11 units clear of a junction mouth, where two crossing lanes cannot see
-// each other and a parked body would visibly overlap the other stream.
+// Distance from a point to the nearest junction centre, where a vertical and a horizontal
+// centre line cross. A lane runs about three units off its own centre line, so the distance
+// to a single line says nothing about how close a car is to a mouth; the crossing does.
+// Staged cars are kept at least 11 units clear of a junction, where two crossing lanes
+// cannot see each other and a parked body would visibly overlap the other stream.
 function junctionDistance(state, x, z) {
   const lines = sortedLines(state.city);
-  return Math.min(nearestLine(lines.xs, x), nearestLine(lines.zs, z));
+  const dx = nearestLine(lines.xs, x);
+  const dz = nearestLine(lines.zs, z);
+  return Math.hypot(dx, dz);
 }
 
 const CAR_COLORS = [0xe4ded0, 0xb8443c, 0x2f5f8a, 0x3f6b4a, 0xe0a23c, 0x8f9298, 0x2b2f36, 0xa8c4cc, 0xc4553f, 0x6d7f9a];
