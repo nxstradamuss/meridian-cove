@@ -72,27 +72,36 @@ export const COUNTS = {
 };
 
 // The follow camera hangs `back` units behind the player and `height` above the road,
-// aimed at ground level under the player's feet (lookHeight 0). Those two numbers alone
-// fix the pitch: atan(22 / 30), about 36 degrees down, which is a high three-quarter
-// angle that still keeps the tower line and its long shadows in the frame.
+// aimed at `lookHeight` above the road under the player's feet. Those numbers fix the
+// pitch: atan((14 - 0.5) / 18), about 37 degrees down, which still keeps the tower line
+// and its long shadows in the frame.
 //
-// These numbers were picked by measurement, not by eye. Each candidate setup was loaded
+// These numbers were picked by measurement, not by eye. Six candidate setups were loaded
 // in a throwaway copy of the game, every instanced object was projected with
 // Vector3.project(camera), and the ones landing inside |ndc| <= 1 in front of the camera
-// were counted on the city scene. The old setup (fov 60, back 19.4, height 29.2) framed
-// only 33 traffic cars, 47 pedestrians and 8 parked vehicles, because its 57 degree pitch
-// and short back distance reached barely fifty units up the avenue. Widening the lens and
-// pulling the camera back and down filled the street: fov 72, back 30, height 22 measured
-// 237 cars, 146 pedestrians and 39 vehicles in frame, the best of the sweep, while the
-// still-steep-enough angle keeps the skyline readable. The near plane is short so the
-// figure never clips, and the far plane comfortably clears the water.
+// were counted on the city scene. The player's own on-screen height was measured the same
+// way, by projecting a point at the feet and one two units above it and converting the
+// NDC gap to pixels at 720. The counts quoted below are instanced-mesh counts, so one car
+// appears three times (body, cabin and trim): 234 car instances are the 78 cars of the
+// 84-car pool that fall inside the frame, and 39 parked instances are 13 of the 14 bays.
+// The previous setup (fov 72, back 30, height 22) measured 237 car instances and 146
+// pedestrians, but the figure stood only about 22 pixels tall, too small to read, so the
+// cover looked like an empty aerial view. The candidates traded that traffic against the
+// figure's size: back 22 / height 18 gave 204 car instances, 118 pedestrians and 28
+// pixels; fov 68, back 20 / height 16 gave 109 and 84 with 33 pixels; back 20 / height 17
+// with lookHeight 2 gave 234 and 142 with 30 pixels; fov 66, back 16 / height 13 gave 105
+// and 81 with 43 pixels. The chosen one, fov 72, back 18, height 14 and lookHeight 0.5,
+// keeps the street busy (234 car instances, 138 pedestrians, 39 parked instances) while
+// growing the player to about 36 pixels, half again as large as before, which reads as a
+// third-person game. The near plane is short so the figure never clips, and the far plane
+// comfortably clears the water.
 export const CAMERA = {
   fov: 72,
   near: 0.4,
   far: 2400,
-  back: 30.0,
-  height: 22.0,
-  lookHeight: 0.0,
+  back: 18.0,
+  height: 14.0,
+  lookHeight: 0.5,
   lookAhead: 0,
   ease: 8,
   minHeight: 2.4,
