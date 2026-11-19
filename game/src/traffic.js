@@ -1,7 +1,7 @@
-// NPC traffic: cars that keep to their lane on the road graph, ease off for the car in
-// front of them, brake for the player on foot, turn at intersections and are recycled to
-// a road near the player once they fall far behind. Drawn as two instanced meshes (body
-// and cabin) written in place every frame.
+// NPC traffic. Cars keep to their lane on the road graph, ease off for the car in front,
+// brake for a pedestrian standing in the lane, turn at junctions, and are recycled to a
+// road near the player once they fall too far behind. They are drawn as two instanced
+// meshes (body and cabin) rewritten in place every frame.
 //
 // A car's `edge` is always an index into city.roads.edges, never the edge object.
 
@@ -12,20 +12,44 @@ import { makeRng } from './random.js';
 import { createCarBatch } from './models.js';
 import { makeOccluder } from './framing.js';
 
-// Distance from a point to the nearest road centre line, on either axis. A staged car is
-// kept this far from a junction mouth, where two crossing lanes cannot see each other.
-function junctionDistance(state, x, z) {
-  const city = state.city;
-  let best = Infinity;
-  for (let i = 0; i < city.roadsX.length; i += 1) {
-    const d = Math.abs(x - city.roadsX[i].x);
-    if (d < best) best = d;
+// The centre lines of the grid never move for the life of a city, so they are sorted once
+// and cached against the city object. A junction query then costs two binary searches
+// instead of a scan down every street.
+const lineCache = new WeakMap();
+
+function sortedLines(city) {
+  let lines = lineCache.get(city);
+  if (!lines) {
+    const values = (list, key) => list.map((line) => line[key]).sort((a, b) => a - b);
+    lines = { xs: values(city.roadsX, 'x'), zs: values(city.roadsZ, 'z') };
+    lineCache.set(city, lines);
   }
-  for (let i = 0; i < city.roadsZ.length; i += 1) {
-    const d = Math.abs(z - city.roadsZ[i].z);
-    if (d < best) best = d;
+  return lines;
+}
+
+// Distance from `value` to the closest entry of a sorted ascending array.
+function nearestLine(sorted, value) {
+  const last = sorted.length - 1;
+  if (last < 0) return Infinity;
+  let lo = 0;
+  let hi = last;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sorted[mid] < value) lo = mid + 1;
+    else hi = mid;
   }
+  // `lo` is the first line at or past the value; the nearest is that one or its neighbour.
+  let best = Math.abs(value - sorted[lo]);
+  if (lo > 0) best = Math.min(best, Math.abs(value - sorted[lo - 1]));
   return best;
+}
+
+// Distance from a point to the nearest road centre line, on either axis. Staged cars are
+// kept at least 11 units clear of a junction mouth, where two crossing lanes cannot see
+// each other and a parked body would visibly overlap the other stream.
+function junctionDistance(state, x, z) {
+  const lines = sortedLines(state.city);
+  return Math.min(nearestLine(lines.xs, x), nearestLine(lines.zs, z));
 }
 
 const CAR_COLORS = [0xe4ded0, 0xb8443c, 0x2f5f8a, 0x3f6b4a, 0xe0a23c, 0x8f9298, 0x2b2f36, 0xa8c4cc, 0xc4553f, 0x6d7f9a];
@@ -59,15 +83,19 @@ export function createTraffic(state, scene) {
   function makeCar(edgeIndex, t) {
     const edge = edges[edgeIndex];
     const color = new THREE.Color(rng.pick(CAR_COLORS));
+    const speed = rng.range(TRAFFIC.minSpeed, TRAFFIC.maxSpeed);
+    const cruise = rng.range(TRAFFIC.minSpeed, TRAFFIC.maxSpeed);
+    const turnSeed = rng.int(1, 0x7fffffff);
     const car = {
       edge: edgeIndex,
       t,
       length: Math.hypot(edge.bx - edge.ax, edge.bz - edge.az) || 1,
-      speed: rng.range(TRAFFIC.minSpeed, TRAFFIC.maxSpeed),
-      cruise: rng.range(TRAFFIC.minSpeed, TRAFFIC.maxSpeed),
+      speed,
+      cruise,
       color,
+      // The cabin is the same paint darkened, so the two instanced meshes always agree.
       cabin: color.clone().multiplyScalar(0.32),
-      turnSeed: rng.int(1, 0x7fffffff),
+      turnSeed,
       x: edge.ax,
       z: edge.az,
       rot: 0,
@@ -86,6 +114,8 @@ export function createTraffic(state, scene) {
 
   function spawnAll() {
     cars.length = 0;
+    // Four out of five cars belong on the avenue, spread evenly along every avenue edge
+    // so the street the camera looks down is the busy one.
     const avenueCount = Math.round(COUNTS.cars * 0.8);
     const perEdge = Math.max(1, Math.ceil(avenueCount / avenueEdges.length));
     for (let i = 0; i < avenueCount; i += 1) {
@@ -95,13 +125,12 @@ export function createTraffic(state, scene) {
       cars.push(makeCar(edgeIndex, t));
     }
     for (let i = cars.length; i < COUNTS.cars; i += 1) {
-      const edgeIndex = rng.pick(crossEdges);
-      cars.push(makeCar(edgeIndex, rng.range(0.05, 0.95)));
+      cars.push(makeCar(rng.pick(crossEdges), rng.range(0.05, 0.95)));
     }
     state.cars = cars;
   }
 
-  // Picks a fresh road slot around the player, far enough away that the swap is not seen.
+  // Picks a fresh road slot around the player, far enough out that the swap is not seen.
   function recycle(car, player) {
     for (let attempt = 0; attempt < 14; attempt += 1) {
       const edgeIndex = rng.chance(0.6) ? rng.pick(avenueEdges) : rng.pick(crossEdges);
@@ -127,7 +156,7 @@ export function createTraffic(state, scene) {
     }
   }
 
-  // The car nearest ahead of `car` on the same edge, as a gap in units.
+  // The car nearest ahead of `car` on the same edge, as a gap in world units.
   function gapAhead(car, bucket) {
     let best = Infinity;
     for (let i = 0; i < bucket.length; i += 1) {
@@ -140,7 +169,7 @@ export function createTraffic(state, scene) {
     return best;
   }
 
-  // A pedestrian or the player standing in the lane ahead: brake for them.
+  // The player standing in the lane ahead: brake for them.
   function obstacleAhead(car, player) {
     const fx = Math.sin(car.rot);
     const fz = Math.cos(car.rot);
@@ -161,11 +190,12 @@ export function createTraffic(state, scene) {
       const edge = edges[car.edge];
       const gap = gapAhead(car, buckets[car.edge]);
       let target = car.cruise;
-      // Keep a two-second gap; a car that has stopped ahead stops the queue.
+      // Keep a two-second gap; a car that has stopped ahead stops the whole queue.
       const safe = 6 + car.speed * 1.1;
       if (gap < safe) target = Math.min(target, Math.max(0, (gap - CAR_LENGTH) * 1.4));
       if (obstacleAhead(car, player)) target = Math.min(target, 1.6);
 
+      // Braking is sharper than accelerating, so a queue settles instead of breathing.
       const rate = target < car.speed ? 16 : 6;
       car.speed += clamp(target - car.speed, -rate * dt, rate * dt);
       if (car.speed < 0.05) car.speed = 0;
@@ -194,11 +224,11 @@ export function createTraffic(state, scene) {
     batch.commit();
   }
 
-  // Staging: move cars that are already in the world onto road points that fall inside the
-  // frame a staged scene is about to capture. The car pool, the lanes and the colours stay
-  // exactly as they are; only the positions change, so the city still has its 84 cars and
-  // the street the camera looks down is the busy one. Points hidden behind a building are
-  // rejected, because a car nobody can see does not fill a frame.
+  // Staging: move cars that already exist onto road points inside the frame a staged scene
+  // is about to capture. The pool, the lanes and the colours stay as they are — only the
+  // positions change — so the city keeps its 84 cars and the street the camera looks down
+  // is the busy one. Points hidden behind a building are rejected, because a car nobody
+  // can see does not fill a frame.
   function stageCars({ framer, count, near = 18, far = 220, gap = 10, margin = 0.9, avoid = [] }) {
     if (!framer || !count) return 0;
     const wanted = Math.min(count, cars.length);
@@ -276,9 +306,9 @@ export function createTraffic(state, scene) {
   return { cars, step, sync, spawnAll, stageCars, edges };
 }
 
-// Follows the road graph: a car never doubles back, and picks its exit with a cheap
-// hash of its own turn seed. Most cars carry straight on, which keeps the avenue busy;
-// the rest turn off at the junction.
+// Follows the road graph: a car never doubles back, and picks its exit with a cheap hash
+// of its own turn seed. Most cars carry straight on, which keeps the avenue busy; the
+// rest turn off at the junction.
 function nextEdge(city, edgeIndex, car) {
   const edge = city.roads.edges[edgeIndex];
   const options = city.roads.out[edge.b].filter((index) => {

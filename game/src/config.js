@@ -1,5 +1,6 @@
-// Tuning constants for Meridian Cove: grid layout, height bands, follow camera, counts,
-// both colour palettes, the sun, and every invented name the game uses.
+// Every number the city and its systems are tuned with: the street grid, the height
+// bands, the follow camera, population counts, the two colour palettes, the sun and the
+// names that appear in the HUD and the title card.
 
 export const CITY_NAME = 'Meridian Cove';
 export const CITY_TAGLINE = 'A sunlit coastal city of glass and salt.';
@@ -15,7 +16,8 @@ export const DISTRICTS = {
   shore: { name: 'Sunrow Beach', blurb: 'sand, palms and the marina' },
 };
 
-// Street names run west to east (x lines) and north to south (z lines).
+// One street name per road line, west to east and north to south. The sixth x line is
+// the avenue, so its name sits in the middle of the list.
 export const STREETS_X = [
   'Saltmarsh Way', 'Cormorant Row', 'Salter Street', 'Brine Walk', 'Anchor Row',
   AVENUE_NAME, 'Gullwing Close', 'Ember Street', 'Tideward Way', 'Marram Lane', 'Breakwater Road',
@@ -25,7 +27,8 @@ export const STREETS_Z = [
   'Halcyon Drive', 'Cannery Row', 'Juniper Way', 'Dockyard Lane', 'Southlight Road', 'Dune Road',
 ];
 
-// The block grid: 11 road lines each way at 60 unit pitch, 10x10 blocks of 48 units.
+// Eleven road lines each way on a 60 unit pitch give ten by ten blocks of 48 units, with
+// a 12 unit roadway between them: 3 units of lane either side of the centre line.
 export const GRID = {
   span: 300,
   pitch: 60,
@@ -38,7 +41,7 @@ export const GRID = {
 
 export const WORLD_LIMIT = GRID.span + 6;
 
-// The coast sits east of the grid, so the beach and marina never cut into downtown.
+// The shoreline runs east of the grid so the beach and marina never bite into downtown.
 export const COAST = {
   shoreX: 300,
   sandEndX: 404,
@@ -48,6 +51,7 @@ export const COAST = {
   marinaZ1: 292,
 };
 
+// Three height bands: glass towers in the core, offices around them, low-rise beyond.
 export const HEIGHTS = {
   towerMin: 62,
   towerMax: 122,
@@ -67,12 +71,19 @@ export const COUNTS = {
   particles: 32,
 };
 
+// The follow camera hangs `back` units behind the player and `height` above the road,
+// aimed at ground level under the player's feet (lookHeight 0). Those two numbers alone
+// fix the pitch: atan(29.2 / 19.4), a touch under 57 degrees down, which is the high
+// three-quarter angle the cover shot is composed for. A 60 degree vertical lens then
+// reaches from the player's heels to roughly forty units up the avenue, wide enough at
+// this aspect to keep both kerbs and the tower line in shot. The near plane is short so
+// the figure never clips, and the far plane comfortably clears the water.
 export const CAMERA = {
-  fov: 62,
+  fov: 60,
   near: 0.4,
   far: 2400,
-  back: 19.0,
-  height: 30.0,
+  back: 19.4,
+  height: 29.2,
   lookHeight: 0.0,
   lookAhead: 0,
   ease: 8,
@@ -91,15 +102,17 @@ export const PLAYER = {
   maxHealth: 100,
 };
 
-// The one colour on the street that means "this is you". Nothing else in the city uses
-// magenta, so the ring under the player's feet is unmistakable even in a shrunk frame.
+// The one colour on the street that means "this is you". Magenta appears nowhere else in
+// the palette, so the ring under the player's feet stays unmistakable even when the frame
+// is scaled down to a thumbnail.
 export const PLAYER_MARK = 0xff2ad4;
 
-// The fixed simulation step, shared by the loop and the staged screenshot scenes.
+// One fixed simulation step for both the live loop and the staged scenes; nothing in the
+// game reads the wall clock, which is what makes two runs of a shot identical.
 export const STEP = 1 / 60;
 
-// The neutral control intent: no keys held. The loop falls back to it and every staged
-// scene starts from it, so a scene only has to say what makes it different.
+// The neutral control intent: nothing held. The live loop falls back to it between keys
+// and a staged scene only has to override the fields it actually uses.
 export const IDLE_INTENT = {
   forward: 0, strafe: 0, turn: 0, look: 0, sprint: false, handbrake: false, firing: false,
 };
@@ -110,9 +123,10 @@ export const TRAFFIC = {
   laneOffset: 3,
 };
 
-// One sun for the whole city: west-south, 33 degrees up, so shadows rake east-north
-// across Kestrel Avenue and every south facade is lit. It never moves, so its light is
-// baked into vertex colours (shading.js) and its shadows into one flat mesh (shadows.js).
+// A single sun for the whole map: south-west, about 33 degrees up, so shadows fall
+// east-north across Kestrel Avenue and the south faces catch the light. It is fixed, so
+// shading.js bakes its light into vertex colours and shadows.js flattens its shadows into
+// one ground mesh instead of a shadow map.
 export const SUN = {
   dir: [-0.70, 0.55, 0.45],
   shadowColor: 0x2a3950,
@@ -122,14 +136,15 @@ export const SUN = {
   shadowMinHeight: 12,
 };
 
+// Warm haze: the distance dissolves into this colour rather than into grey.
 export const SKY = {
   fogColor: 0xf9e2c6,
   fogNear: 300,
   fogFar: 780,
 };
 
-// Anything past this radius from the player is parked out of the render set: it sits
-// well inside the fog, so its absence reads as haze rather than as a hole.
+// Past this radius the renderer stops drawing a thing altogether. The cut happens well
+// inside the fog, so a culled block reads as distance rather than as a missing chunk.
 export const CULL = {
   radius: 470,
   shadowRadius: 230,
@@ -147,8 +162,8 @@ export const PALETTE = {
   bandWarm: 0x6b4a35,
   bandMid: 0x5d564c,
   sidewalk: 0xdcd3c2,
-  // Asphalt reads mid-grey in full sun, not near-black: the road has to sit under the
-  // shadow overlay without turning into a void.
+  // Asphalt has to read as mid-grey in full sun rather than near-black, because the
+  // shadow overlay lands on top of it and a dark road would swallow the shadows whole.
   road: 0x5f666e,
   paint: 0xf7f4ea,
   paintYellow: 0xf0c542,

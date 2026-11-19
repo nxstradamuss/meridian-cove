@@ -1,6 +1,7 @@
-// The crowd: pedestrians walking the block perimeters on the sidewalks, pausing at the
-// corners, running from gunfire and from anything moving fast enough to hit them.
-// One InstancedMesh; the walk cycle is per instance (bob, roll and a scale per person).
+// The crowd. Everyone walks the perimeter of a block on the pavement, sometimes stops at
+// a corner, runs away from gunfire and from anything moving fast enough to hit them.
+// The whole crowd is one InstancedMesh; the walk cycle lives per person as a bob, a roll
+// and a body scale.
 
 import * as THREE from '../vendor/three.module.min.js';
 import { COUNTS, GRID } from './config.js';
@@ -13,16 +14,29 @@ const PED_COLORS = [
   0xe0d3b8, 0xc25a44, 0x3f6f86, 0xd8b04a, 0x5d6b4a, 0x8a5f8f, 0xd8d8d8,
   0x2f4a6b, 0xb8543f, 0x4f7f6b, 0xe8c27a, 0x6a4f3f,
 ];
-const PERIMETER_INSET = 2.4;
-// The pavement slabs stand 0.36 above the roadway (see scene3d.js addSidewalks).
+
+// People walk this far in from the kerb, leaving room for the lamp posts.
+const WALK_INSET = 2.4;
+// The pavement slab stands 0.36 above the roadway (see scene3d.js addSidewalks).
 const PAVEMENT = 0.36;
-const HALF = GRID.blockSize / 2 - PERIMETER_INSET;
+
+const HALF = GRID.blockSize / 2 - WALK_INSET;
 const SIDE = HALF * 2;
 const PERIMETER = SIDE * 4;
 const MAX_PEDS = COUNTS.peds + 16;
 
+// Bodies run a little over life size: at 1.12 to 1.47 a person still reads as a person
+// when the finished 1280x720 frame is shrunk to a thumbnail, and the range keeps the tall
+// and the short of the crowd visibly different instead of one uniform column of clones.
+const BODY_MIN = 1.12;
+const BODY_SPREAD = 0.35;
+
+function bodyScale(rng) {
+  return BODY_MIN + rng.next() * BODY_SPREAD;
+}
+
 // The four corners of a block's walking perimeter, in the order the walk visits them.
-function corners(block) {
+function blockCorners(block) {
   return [
     { x: block.cx - HALF, z: block.cz - HALF },
     { x: block.cx + HALF, z: block.cz - HALF },
@@ -31,21 +45,22 @@ function corners(block) {
   ];
 }
 
-function perimeterPoint(block, t) {
-  const points = corners(block);
-  let d = (((t % 1) + 1) % 1) * PERIMETER;
+// A point on the perimeter at normalised distance t, plus the heading along the walk.
+function perimeterAt(block, t) {
+  const points = blockCorners(block);
+  let travelled = (((t % 1) + 1) % 1) * PERIMETER;
   for (let i = 0; i < 4; i += 1) {
-    if (d <= SIDE) {
+    if (travelled <= SIDE) {
       const a = points[i];
       const b = points[(i + 1) % 4];
-      const f = d / SIDE;
+      const f = travelled / SIDE;
       return {
         x: a.x + (b.x - a.x) * f,
         z: a.z + (b.z - a.z) * f,
         rot: Math.atan2(b.x - a.x, b.z - a.z),
       };
     }
-    d -= SIDE;
+    travelled -= SIDE;
   }
   return { x: block.cx, z: block.cz, rot: 0 };
 }
@@ -56,8 +71,8 @@ export function createPeds(state, scene) {
   const peds = [];
   const batch = scene ? createPersonBatch(scene, MAX_PEDS, 'peds') : null;
 
-  // The avenue is where the crowd has to read: fill the blocks that front it first,
-  // then spread the rest over downtown so the city never feels emptied.
+  // The avenue is where the crowd has to read, so the blocks that front it are filled
+  // first and the rest of the population spreads over downtown.
   const avenueBlocks = [];
   const otherBlocks = [];
   city.blocks.forEach((block, index) => {
@@ -77,7 +92,7 @@ export function createPeds(state, scene) {
       dir: rng.chance(0.5) ? 1 : -1,
       speed: rng.range(1.0, 1.9),
       phase: rng.range(0, 6.28),
-      scale: rng.range(1.15, 1.42),
+      scale: bodyScale(rng),
       color,
       x: block.cx,
       z: block.cz,
@@ -94,7 +109,7 @@ export function createPeds(state, scene) {
   }
 
   function place(ped) {
-    const point = perimeterPoint(city.blocks[ped.block], ped.t);
+    const point = perimeterAt(city.blocks[ped.block], ped.t);
     ped.x = point.x;
     ped.z = point.z;
     ped.rot = ped.dir > 0 ? point.rot : wrapAngle(point.rot + Math.PI);
@@ -105,34 +120,40 @@ export function createPeds(state, scene) {
     const avenueCount = Math.min(120, Math.round(COUNTS.peds * 0.72));
     const perBlock = Math.max(1, Math.ceil(avenueCount / avenueBlocks.length));
     const kerbSlots = Math.min(8, perBlock);
+
+    // The avenue crowd walks the kerb that faces the road: the east side of a block west
+    // of the avenue, the west side of a block east of it. Once those kerbs are full the
+    // overflow goes to the opposite side of the same block.
     for (let i = 0; i < avenueCount; i += 1) {
       const blockIndex = avenueBlocks[i % avenueBlocks.length];
       const block = city.blocks[blockIndex];
       const slot = Math.floor(i / avenueBlocks.length);
-      // Most of the crowd walks the kerb that faces the avenue, where the camera looks.
       const kerb = block.cx > 0 ? 3 : 1;
-      const side = slot < kerbSlots ? kerb : (kerb + 2) % 4;
-      const within = slot < kerbSlots
+      const onKerb = slot < kerbSlots;
+      const side = onKerb ? kerb : (kerb + 2) % 4;
+      const along = onKerb
         ? (slot + 0.5) / kerbSlots
         : (slot - kerbSlots + 0.5) / Math.max(1, perBlock - kerbSlots);
-      const t = ((side + within) / 4 + rng.range(-0.008, 0.008) + 1) % 1;
+      const t = ((side + along) / 4 + rng.range(-0.008, 0.008) + 1) % 1;
       peds.push(spawn(blockIndex, t));
     }
-    for (let i = peds.length; i < COUNTS.peds; i += 1) {
+
+    // Everyone else fills the remaining downtown blocks, anywhere on the perimeter.
+    while (peds.length < COUNTS.peds) {
       peds.push(spawn(rng.pick(otherBlocks), rng.range(0, 1)));
     }
     state.peds = peds;
   }
 
-  // Runs a ped along its sidewalk, away from a threat. The direction is chosen by
-  // comparing the two ways round the block, so nobody runs into the gunfire.
+  // Sends a ped along its pavement, away from a threat. Both ways round the block are
+  // compared first, so nobody sprints into the gunfire.
   function fleeFrom(ped, threatX, threatZ, seconds) {
     const block = city.blocks[ped.block];
-    const ahead = perimeterPoint(block, ped.t + 0.02);
-    const behind = perimeterPoint(block, ped.t - 0.02);
-    const da = Math.hypot(ahead.x - threatX, ahead.z - threatZ);
-    const db = Math.hypot(behind.x - threatX, behind.z - threatZ);
-    ped.dir = da > db ? 1 : -1;
+    const ahead = perimeterAt(block, ped.t + 0.02);
+    const behind = perimeterAt(block, ped.t - 0.02);
+    const aheadGap = Math.hypot(ahead.x - threatX, ahead.z - threatZ);
+    const behindGap = Math.hypot(behind.x - threatX, behind.z - threatZ);
+    ped.dir = aheadGap > behindGap ? 1 : -1;
     ped.flee = Math.max(ped.flee, seconds);
     ped.pause = 0;
   }
@@ -148,7 +169,8 @@ export function createPeds(state, scene) {
     }
   }
 
-  function threatCars(state) {
+  // Anything on the street moving fast enough to hurt someone.
+  function threats(state) {
     const fast = [];
     const collect = (car) => {
       if (Math.abs(car.speed) > 6) fast.push(car);
@@ -159,7 +181,7 @@ export function createPeds(state, scene) {
   }
 
   function step(dt, state) {
-    const fast = threatCars(state);
+    const fast = threats(state);
     for (const ped of peds) {
       if (ped.down > 0) {
         ped.down -= dt;
@@ -212,15 +234,15 @@ export function createPeds(state, scene) {
       if (ped.down > 0) continue;
       const bob = Math.abs(Math.sin(ped.phase)) * 0.075 * ped.stride;
       const lean = Math.sin(ped.phase * 0.5) * 0.06 * ped.stride;
-      // The pavement stands 0.36 above the roadway, so a figure walking it has to be
-      // lifted by the same amount or it sinks to the knee.
+      // The pavement stands 0.36 above the roadway, so a figure walking it is lifted by
+      // the same amount; otherwise it sinks to the knee in the slabs.
       batch.place(ped.x, ped.z, ped.rot, ped.color, PAVEMENT + bob, lean, ped.scale);
     }
     batch.commit();
   }
 
-  // Staging: move the crowd onto the pavements that fall inside the frame a staged scene is
-  // about to capture. The two sides of the street are filled alternately, so the kerbs the
+  // Staging: move the crowd onto pavements that fall inside the frame a staged scene is
+  // about to capture. Both sides of the street are filled alternately so the kerbs the
   // camera looks down are the crowded ones, and the colours are re-dealt from the palette
   // so the crowd never reads as a column of one colour.
   function stageCrowd({ framer, count, near = 9, far = 150, gap = 2.4, margin = 0.92, avoid = [] }) {
@@ -235,7 +257,7 @@ export function createPeds(state, scene) {
       const steps = Math.max(14, Math.round(PERIMETER / 1.6));
       for (let s = 0; s < steps; s += 1) {
         const t = s / steps;
-        const point = perimeterPoint(block, t);
+        const point = perimeterAt(block, t);
         if (!framer.inFrame(point.x, 1.0, point.z, margin)) continue;
         const d = framer.distance(point.x, point.z);
         if (d < near || d > far) continue;
@@ -256,6 +278,7 @@ export function createPeds(state, scene) {
     left.sort((a, b) => a.d - b.d);
     right.sort((a, b) => a.d - b.d);
 
+    // Nearest first, alternating sides, and never two people within `gap` of each other.
     const chosen = [];
     const take = (slot) => {
       if (!slot) return;
