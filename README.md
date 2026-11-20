@@ -6,7 +6,7 @@ A 3D open-world crime city in the browser — built for the [make.fun gta6-01 co
 
 ## Overview
 
-Meridian Cove is a fully playable GTA-style open city running entirely in the browser with zero dependencies (no build step, no network requests). It features:
+Meridian Cove is a fully playable open-world crime city running entirely in the browser with zero dependencies (no build step, no network requests). It features:
 
 - **Procedural city generation** — different seed = different city layout every time
 - **Instanced rendering** — thousands of buildings, cars, pedestrians, street furniture drawn with ~30 draw calls
@@ -89,7 +89,7 @@ node serve.ts --port 8080
 |-------|-------------|
 | `1-city.jpg` | Cover: Kestrel Avenue viewpoint, traffic + crowd |
 | `2-chase.jpg` | Police chase: player in gold coupe, 3 cruisers boxing in |
-| `3-mission.jpg` | Vipers job: Cannery Row approach, crew engagement |
+| `3-mission.jpg` | Syndicate job: Cannery Row approach, crew engagement |
 | `4-standoff.jpg` | 5-star standoff: cruisers, officers, both sides firing |
 
 ## Competition History
