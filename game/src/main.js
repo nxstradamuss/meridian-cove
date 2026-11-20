@@ -17,6 +17,7 @@ import { createMissions } from './missions.js';
 import { createShots } from './shots.js';
 import { drawHud } from './hud.js';
 import { drawPause, drawTitle, drawWasted } from './screens.js';
+import { createParticleSystem } from './particles.js';
 
 const IDLE = IDLE_INTENT;
 
@@ -78,6 +79,7 @@ let police = null;
 let combat = null;
 let missions = null;
 let shots = null;
+let particles = null;
 
 let mode = 'title';
 let elapsed = 0;
@@ -117,13 +119,14 @@ function rebuild() {
   shots = createShots({
     state, playerModel, follow, traffic, peds, vehicles, police, missions, simulate, setOnFoot,
   });
+  particles = createParticleSystem(world.scene);
   state.onShot = (x, z) => peds.alert(x, z, 30);
 
   if (previous) previous.scene.clear();
   playerModel.place(state.city, state.player);
   follow.place(state.player);
   gta.stats = describeCity();
-  gta.systems = { traffic, peds, vehicles, police, combat, missions };
+  gta.systems = { traffic, peds, vehicles, police, combat, missions, particles };
 }
 
 function describeCity() {
@@ -161,6 +164,16 @@ function simulate(dt, intent) {
 
   if (state.driving) {
     vehicles.step(dt, intent, state);
+    // Wheel dust from driven car
+    if (state.speed > 4) {
+      const p = state.player;
+      particles.emitDust(p.x, p.z, p.heading, state.speed);
+    }
+    // Exhaust smoke
+    if (Math.random() < 0.15) {
+      const p = state.player;
+      particles.emitSmoke(p.x, p.z, p.heading, 1);
+    }
   } else {
     playerModel.step(dt, state.player, intent, state.city, { dust: state.fx.dust });
     state.speed = 0;
@@ -172,6 +185,27 @@ function simulate(dt, intent) {
   police.step(dt);
   combat.step(dt, intent.firing);
   missions.step(dt);
+  
+  // Particle effects from combat
+  if (combat.events.justHit) {
+    particles.emitSparks(combat.events.hitX, combat.events.hitY, combat.events.hitZ, combat.events.hitNormal);
+    combat.events.justHit = false;
+  }
+  if (combat.events.justFired) {
+    particles.emitFlash(combat.events.fireX, combat.events.fireY, combat.events.fireZ, combat.events.fireHeading);
+    combat.events.justFired = false;
+  }
+  
+  // Traffic exhaust
+  traffic.forEachCar?.((car) => {
+    if (car.speed > 2 && Math.random() < 0.05) {
+      particles.emitSmoke(car.x, car.z, car.heading, 0.5);
+    }
+    if (car.speed > 6) {
+      particles.emitDust(car.x, car.z, car.heading, car.speed);
+    }
+  });
+
   updatePrompt();
   elapsed += dt;
 }
@@ -247,6 +281,8 @@ function frame(now) {
 
   syncViews();
   world.cull(state);
+  // Step particle system
+  if (particles) particles.step(dt, state.player.x, state.player.z);
   renderer.render(world.scene, follow.camera);
 
   hud.setTransform(1, 0, 0, 1, 0, 0);

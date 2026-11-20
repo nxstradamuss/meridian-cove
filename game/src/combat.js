@@ -70,6 +70,16 @@ export function createCombat(state, scene) {
 
   const dummy = new THREE.Object3D();
 
+  // Expose hit/fire events for particle system
+  const events = {
+    justHit: false,
+    justFired: false,
+    hitX: 0, hitY: 0, hitZ: 0,
+    hitNormal: { x: 0, y: 1, z: 0 },
+    fireX: 0, fireY: 0, fireZ: 0,
+    fireHeading: 0,
+  };
+
   function spawnParticle(x, y, z, vx, vy, vz, life, size, color) {
     const p = particles[particleCursor];
     particleCursor = (particleCursor + 1) % MAX_PARTICLES;
@@ -139,6 +149,7 @@ export function createCombat(state, scene) {
     b.vz = (dz / length) * BULLET_SPEED;
     b.life = BULLET_LIFE;
     b.owner = owner;
+    return { x, y, z, heading: Math.atan2(dx, dz) };
   }
 
   // The player's shot: along the heading the camera looks down, with a touch of spread.
@@ -149,10 +160,16 @@ export function createCombat(state, scene) {
     const heading = player.heading + spread;
     const muzzleX = player.x + Math.sin(player.heading) * 0.9;
     const muzzleZ = player.z + Math.cos(player.heading) * 0.9;
-    fireBullet(muzzleX, 1.32, muzzleZ, muzzleX + Math.sin(heading) * 30, muzzleZ + Math.cos(heading) * 30, 'player');
+    const shot = fireBullet(muzzleX, 1.32, muzzleZ, muzzleX + Math.sin(heading) * 30, muzzleZ + Math.cos(heading) * 30, 'player');
     state.fx.muzzle(player.x, player.z, player.heading);
     raiseWanted(state, Math.max(1, state.wanted));
     if (state.onShot) state.onShot(player.x, player.z);
+    // Emit fire event for particles
+    events.justFired = true;
+    events.fireX = muzzleX;
+    events.fireY = 1.32;
+    events.fireZ = muzzleZ;
+    events.fireHeading = heading;
     return true;
   }
 
@@ -172,6 +189,11 @@ export function createCombat(state, scene) {
     for (const rect of city.collisions) {
       if (pointInRect(bullet.x, bullet.z, rect)) {
         state.fx.spark(bullet.x, bullet.y, bullet.z, 3);
+        events.justHit = true;
+        events.hitX = bullet.x;
+        events.hitY = bullet.y;
+        events.hitZ = bullet.z;
+        events.hitNormal = { x: 0, y: 1, z: 0 };
         return true;
       }
     }
@@ -183,6 +205,13 @@ export function createCombat(state, scene) {
         if (dx * dx + dz * dz < 1.1) {
           hitPerson(ped, ped.x, ped.z);
           raiseWanted(state, Math.max(2, state.wanted + 1));
+          events.justHit = true;
+          events.hitX = ped.x;
+          events.hitY = 1.2;
+          events.hitZ = ped.z;
+          events.hitNormal = { x: -dx, y: 1, z: -dz };
+          const len = Math.hypot(events.hitNormal.x, events.hitNormal.z);
+          if (len > 0) { events.hitNormal.x /= len; events.hitNormal.z /= len; }
           return true;
         }
       }
@@ -193,6 +222,13 @@ export function createCombat(state, scene) {
         if (dx * dx + dz * dz < 1.3) {
           hitPerson(officer, officer.x, officer.z);
           raiseWanted(state, Math.max(3, state.wanted + 2));
+          events.justHit = true;
+          events.hitX = officer.x;
+          events.hitY = 1.2;
+          events.hitZ = officer.z;
+          events.hitNormal = { x: -dx, y: 1, z: -dz };
+          const len = Math.hypot(events.hitNormal.x, events.hitNormal.z);
+          if (len > 0) { events.hitNormal.x /= len; events.hitNormal.z /= len; }
           return true;
         }
       }
@@ -202,6 +238,13 @@ export function createCombat(state, scene) {
         const dz = crew.z - bullet.z;
         if (dx * dx + dz * dz < 1.3) {
           hitPerson(crew, crew.x, crew.z);
+          events.justHit = true;
+          events.hitX = crew.x;
+          events.hitY = 1.2;
+          events.hitZ = crew.z;
+          events.hitNormal = { x: -dx, y: 1, z: -dz };
+          const len = Math.hypot(events.hitNormal.x, events.hitNormal.z);
+          if (len > 0) { events.hitNormal.x /= len; events.hitNormal.z /= len; }
           return true;
         }
       }
@@ -210,6 +253,11 @@ export function createCombat(state, scene) {
         const dz = cruiser.z - bullet.z;
         if (dx * dx + dz * dz < 5.2) {
           state.fx.spark(bullet.x, 1.1, bullet.z, 4);
+          events.justHit = true;
+          events.hitX = bullet.x;
+          events.hitY = 1.1;
+          events.hitZ = bullet.z;
+          events.hitNormal = { x: 0, y: 1, z: 0 };
           return true;
         }
       }
@@ -218,6 +266,11 @@ export function createCombat(state, scene) {
         const dz = car.z - bullet.z;
         if (dx * dx + dz * dz < 5.2) {
           state.fx.spark(bullet.x, 1.0, bullet.z, 3);
+          events.justHit = true;
+          events.hitX = bullet.x;
+          events.hitY = 1.0;
+          events.hitZ = bullet.z;
+          events.hitNormal = { x: 0, y: 1, z: 0 };
           return true;
         }
       }
@@ -227,6 +280,13 @@ export function createCombat(state, scene) {
       const dz = player.z - bullet.z;
       if (dx * dx + dz * dz < 0.95) {
         damagePlayer(state, PLAYER_DAMAGE, bullet.x, bullet.z);
+        events.justHit = true;
+        events.hitX = player.x;
+        events.hitY = 1.2;
+        events.hitZ = player.z;
+        events.hitNormal = { x: dx, y: 1, z: dz };
+        const len = Math.hypot(events.hitNormal.x, events.hitNormal.z);
+        if (len > 0) { events.hitNormal.x /= len; events.hitNormal.z /= len; }
         return true;
       }
     }
@@ -345,7 +405,7 @@ export function createCombat(state, scene) {
     flashMesh.instanceMatrix.needsUpdate = true;
   }
 
-  return { step, sync, reset, fire, fireAt, bullets, particles };
+  return { step, sync, reset, fire, fireAt, bullets, particles, events };
 }
 
 // Health and death. Called from a crash, a police bullet or a fall in the water.

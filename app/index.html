@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Vice Cover — photo to game-cover art</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="app">
+  <aside class="rail">
+    <header class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div class="brand-text">
+        <h1>Vice Cover</h1>
+        <p>Any photo, lettered like a game poster.</p>
+      </div>
+    </header>
+
+    <section class="group">
+      <h2>Photos <em id="photo-count">0</em></h2>
+      <label class="drop" id="drop">
+        <input id="photo" type="file" accept="image/*" multiple>
+        <strong>Drop photos here</strong>
+        <span>or click to choose — one or several at once</span>
+      </label>
+      <div class="thumbs" id="thumbs" aria-label="Loaded photos"></div>
+      <div class="samples">
+        <button class="sample" type="button" data-sample="boulevard">
+          <img src="samples/boulevard.jpg" alt="Woman in sunglasses leaning on a red convertible">
+          <span>Boulevard</span>
+        </button>
+        <button class="sample" type="button" data-sample="braids">
+          <img src="samples/braids.jpg" alt="Woman with long braids and gold wire glasses">
+          <span>Braids</span>
+        </button>
+        <button class="sample" type="button" data-sample="crown">
+          <img src="samples/crown.jpg" alt="Young man with sunglasses pushed up on his head">
+          <span>Crown</span>
+        </button>
+        <button class="sample" type="button" data-sample="smoke">
+          <img src="samples/smoke.jpg" alt="Young man in a backwards cap and aviator sunglasses">
+          <span>Smoke</span>
+        </button>
+        <button class="sample" type="button" data-sample="pier">
+          <img src="samples/pier.jpg" alt="Fisherman on a pier at dusk">
+          <span>Pier</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Layout <em id="panel-count">5 panels</em></h2>
+      <div class="chips" id="layouts"></div>
+    </section>
+
+    <section class="group">
+      <h2>Size</h2>
+      <div class="chips" id="sizes"></div>
+      <div class="custom">
+        <input id="custom-w" type="number" min="320" max="4096" step="1" value="1080" aria-label="Custom width">
+        <span>×</span>
+        <input id="custom-h" type="number" min="320" max="4096" step="1" value="1080" aria-label="Custom height">
+        <button id="custom-apply" type="button">Set</button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Caption</h2>
+      <label class="field"><span>Title</span>
+        <input id="caption" type="text" maxlength="32" value="Sunset Heist" autocomplete="off">
+      </label>
+      <div class="row">
+        <label class="field"><span>Kicker</span>
+          <input id="kicker" type="text" maxlength="40" value="A Neon Crime Saga" autocomplete="off">
+        </label>
+        <label class="field"><span>Subtitle</span>
+          <input id="subtitle" type="text" maxlength="32" value="Coming Soon" autocomplete="off">
+        </label>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>Grade <em>auto mixes them</em></h2>
+      <div class="chips" id="grades"></div>
+    </section>
+
+    <footer class="actions">
+      <button id="reshuffle" class="ghost" type="button">Reshuffle shots</button>
+      <button id="export" class="primary" type="button">Export PNG</button>
+      <p id="status" role="status"></p>
+    </footer>
+
+    <p class="credits">Sample photos are CC0 or supplied by make.fun — free to use.</p>
+  </aside>
+
+  <main class="stage">
+    <div class="frame" id="frame">
+      <canvas id="cover" width="1080" height="1080" aria-label="The finished cover"></canvas>
+      <canvas id="overlay" width="1080" height="1080" aria-hidden="true"></canvas>
+    </div>
+    <p class="hud" id="hud"></p>
+    <p class="hint" id="hint">Click a panel to select it, then drag inside it to reposition the crop.</p>
+  </main>
+</main>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

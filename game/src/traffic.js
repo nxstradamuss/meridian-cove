@@ -307,7 +307,11 @@ export function createTraffic(state, scene) {
   }
 
   spawnAll();
-  return { cars, step, sync, spawnAll, stageCars, edges };
+  // Helper to iterate over all cars for particle effects
+  function forEachCar(fn) {
+    for (const car of cars) fn(car);
+  }
+  return { cars, step, sync, spawnAll, stageCars, edges, forEachCar };
 }
 
 // Follows the road graph: a car never doubles back, and picks its exit with a cheap hash
