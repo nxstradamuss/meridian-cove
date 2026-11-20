@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meridian Cove — 3D Open-World Crime City</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #0a0f2a; color: #f0e8d8; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+    .container { max-width: 800px; text-align: center; }
+    h1 { font-size: 3rem; background: linear-gradient(135deg, #ffdfb8 0%, #b6d2e6 50%, #5f9dd2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1rem; }
+    .tagline { font-size: 1.25rem; color: #b6d2e6; margin-bottom: 2rem; }
+    .btn { display: inline-block; padding: 1rem 2rem; background: linear-gradient(135deg, #ffd2a4, #ffdfb8); color: #0a0f2a; font-weight: 600; text-decoration: none; border-radius: 8px; transition: transform 0.2s, box-shadow 0.2s; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255, 222, 164, 0.4); }
+    .features { margin-top: 3rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; text-align: left; }
+    .feature { background: rgba(255, 222, 164, 0.05); border: 1px solid rgba(255, 222, 164, 0.2); padding: 1.5rem; border-radius: 12px; }
+    .feature h3 { color: #ffdfb8; margin-bottom: 0.5rem; font-size: 1.1rem; }
+    .feature p { color: #a8b8d0; font-size: 0.9rem; line-height: 1.5; }
+    .links { margin-top: 2rem; display: flex; gap: 1rem; justify-content: center; }
+    .links a { color: #5f9dd2; text-decoration: none; font-weight: 500; }
+    .links a:hover { text-decoration: underline; }
+    @media (max-width: 600px) { h1 { font-size: 2rem; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Meridian Cove</h1>
+    <p class="tagline">A 3D open-world crime city in the browser</p>
+    <a href="./game/" class="btn">Play Now →</a>
+    
+    <div class="features">
+      <div class="feature">
+        <h3>🏙️ Procedural City</h3>
+        <p>Different seed = new city. 100 blocks, towers, coast, marina, landmarks.</p>
+      </div>
+      <div class="feature">
+        <h3>🌅 Dynamic Time of Day</h3>
+        <p>Sun position, sky gradient, fog, shadows, and window lights all interpolate smoothly.</p>
+      </div>
+      <div class="feature">
+        <h3>✨ Particle System</h3>
+        <p>Wheel dust, exhaust smoke, gunfire sparks, muzzle flashes, debris — all GPU-friendly.</p>
+      </div>
+      <div class="feature">
+        <h3>🚗 Full Gameplay</h3>
+        <p>Traffic, pedestrians, police pursuit, combat, missions, drivable vehicles.</p>
+      </div>
+      <div class="feature">
+        <h3>⚡ Zero Dependencies</h3>
+        <p>Only vendored three.js. No build step, no network, runs offline.</p>
+      </div>
+      <div class="feature">
+        <h3>🏆 Competition Entry</h3>
+        <p>Built for make.fun gta6-01. Ranked #182/4180, targeting top 50.</p>
+      </div>
+    </div>
+    
+    <div class="links">
+      <a href="https://github.com/nxstradamuss/meridian-cove">GitHub</a>
+      <span>·</span>
+      <a href="https://make.fun/c/gta6-01">Competition</a>
+      <span>·</span>
+      <a href="https://make.fun/@nxstradamuss">Profile</a>
+    </div>
+  </div>
+</body>
+</html>
